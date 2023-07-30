@@ -1,0 +1,4 @@
+WHITELIST=example.com,hello.com,test.com,oosc.online,vbsca.ca/login/login.asp,www.google.com,www.bing.com,testphp.vulnweb.com/login.php,vbsca.ca,vbsca.ca/login/LoginsAndPermissions3.htm,testphp.vulnweb.com
+CACHE_EXPIRATION=100
+START_TIME=8
+END_TIME=20
