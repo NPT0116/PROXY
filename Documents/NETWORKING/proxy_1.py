@@ -1,12 +1,36 @@
-#!/usr/bin/env python3
+ #!/usr/bin/env python3
 """Proxy Server with additional functionalities."""
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 import datetime
 # Define the cache expiration time in seconds (15 minutes)
-DEFAULT_CACHE_EXPIRATION = 900
+DEFAULT_CACHE_EXPIRATION = 100
 import os
+import threading
+import time
+# Hàm để kiểm tra và xóa hình ảnh cũ khỏi cache
+def clean_image_cache(image_cache):
+    while True:
+        now = datetime.datetime.now()
+        keys_to_delete = [key for key, value in image_cache.items() if value["expiration"] < now]
+        for key in keys_to_delete:
+            # Remove the image data from the cache
+            del image_cache[key]
+            print(f"Xóa hình ảnh cũ khỏi cache - URL: {key}")
+            
+            # Remove the image file from the cache folder
+            image_filename = os.path.join("cache", f"{key}.jpg")
+            if os.path.exists(image_filename):
+                os.remove(image_filename)
+                print(f"Đã xóa hình ảnh khỏi thư mục cache: {image_filename}")
 
+        # Đợi 1 phút trước khi kiểm tra và xóa lại
+        time.sleep(10)
+
+
+# Tạo và khởi chạy một luồng đồng hồ
+clean_thread = threading.Thread(target=clean_image_cache)
+clean_thread.start()
 # Kiểm tra và tạo thư mục cache nếu chưa tồn tại
 if not os.path.exists("cache"):
     os.makedirs("cache")
@@ -200,10 +224,10 @@ def fetch_image_from_webserver(url):
 def handle_image_request(url):
     """Xử lý yêu cầu hình ảnh, phục vụ từ bộ nhớ cache hoặc tải từ máy chủ web."""
     global image_cache, cache_expiration
-
+    
     # Lấy giá trị băm của URL để dùng làm khóa cache
     image_key = get_url_hash(url)
-
+    
     # Kiểm tra nếu hình ảnh có trong bộ nhớ cache và chưa hết hạn
     if image_key in image_cache and image_cache[image_key]["expiration"] >= datetime.datetime.now():
         print(f"Phục vụ hình ảnh từ bộ nhớ cache - URL: {url}")
@@ -216,9 +240,17 @@ def handle_image_request(url):
         if image_data:
             expiration_time = datetime.datetime.now() + datetime.timedelta(seconds=cache_expiration)
             image_cache[image_key] = {"data": image_data, "expiration": expiration_time}
+            #print(value["expiration"], " -----" , datetime.datetime.now())
+            # Xóa hình ảnh cũ khỏi cache nếu đã hết hạn
+            for key, value in list(image_cache.items()):
+                if value["expiration"] < datetime.datetime.now():
+                    del image_cache[key]
+                    print(f"Xóa hình ảnh cũ khỏi cache - URL: {key}")
+            
             return image_data
 
     return None
+
 
 
 def broadcast(msg, prefix=""):  # prefix is for name identification.
@@ -231,7 +263,7 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
 clients = {}
 addresses = {}
 
-HOST = '192.168.4.15'
+HOST = '10.123.1.64'
 PORT =8888
 BUFSIZ = 4096
 ADDR = (HOST, PORT)
@@ -242,7 +274,10 @@ SERVER.bind(ADDR)
 if __name__ == "__main__":
     config = read_config()
     cache_expiration = int(config.get("CACHE_EXPIRATION", DEFAULT_CACHE_EXPIRATION))
+    print(cache_expiration, " -----")
     whitelist = config.get("WHITELIST", DEFAULT_WHITELIST)
+    clean_thread = threading.Thread(target=clean_image_cache, args=(image_cache,))
+    clean_thread.start()
     for domain in whitelist :
         print("domain:    ",domain)
     SERVER.listen(5)
