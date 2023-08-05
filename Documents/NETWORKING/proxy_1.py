@@ -79,19 +79,13 @@ def read_config():
 
 
 # Check if the URL is whitelisted
-from urllib.parse import urlparse
-
-# Check if the URL is whitelisted
 def is_whitelisted(url, whitelist):
-    parsed_url = urlparse(url)
-    domain = parsed_url.netloc.lower()
-
-
-    for allowed_domain in whitelist:
-        # print("Domain:", allowed_domain, "   " , domain)
-        if domain.endswith(allowed_domain.lower()):
-            return True
-
+    url_parts = url.split("/")
+    if len(url_parts) >= 3:
+        domain = url_parts[2].lower()
+        for allowed_domain in whitelist:
+            if domain.endswith(allowed_domain.lower()):
+                return True
     return False
 
 
@@ -99,11 +93,34 @@ def is_whitelisted(url, whitelist):
 
 #C:\Users\Admin\Desktop\network\proxy_1.py
 # Check if it's within valid time (8AM to 8PM)
-def is_valid_time():
+def is_valid_time(start_time, end_time):
     now = datetime.datetime.now()
     current_hour = now.hour
-    print("Current hour:", current_hour)
-    return 8 <= current_hour <= 20
+    return start_time <= current_hour <= end_time
+
+# Đọc cấu hình từ tệp config.txt
+def read_config():
+    config = {}
+    try:
+        with open("config.txt") as f:
+            for line in f:
+                key, value = line.strip().split("=")
+                if key == "WHITELIST":
+                    config[key] = [domain.strip() for domain in value.split(",") if domain.strip()]
+                elif key == "CACHE_EXPIRATION":
+                    config[key] = int(value)
+                elif key == "START_TIME":
+                    config[key] = int(value)
+                elif key == "END_TIME":
+                    config[key] = int(value)
+                else:
+                    config[key] = value
+    except FileNotFoundError:
+        pass
+    return config
+
+
+
 
 
 def accept_incoming_connections():
@@ -112,9 +129,9 @@ def accept_incoming_connections():
         client, client_address = SERVER.accept()
         print("%s:%s has connected." % client_address)
         addresses[client] = client_address
-        Thread(target=handle_client, args=(client,)).start()
+        Thread(target=handle_client, args=(client, config["START_TIME"], config["END_TIME"])).start()
 
-def handle_client(client):
+def handle_client(client, start_time, end_time):
     """Handles a single client connection."""
     request_data = client.recv(4096)
     first_line = request_data.decode().split('\n')[0]
@@ -157,7 +174,7 @@ def handle_client(client):
             return
 
         # Check if it's within valid time
-        if not is_valid_time():
+        if not is_valid_time(start_time, end_time):
             print("Forbidden access (out of time) - URL:", url)
             response = "HTTP/1.0 403 Forbidden\r\nContent-Type: text/html\r\n\r\n<h1>403 Forbidden</h1>"
             client.send(response.encode())
@@ -197,6 +214,7 @@ def handle_client(client):
                     client.send(response_data)
                 else:
                     break
+            server_socket.close
         except Exception as e:
             print(f"Error: {e}")
 
@@ -228,25 +246,28 @@ def fetch_image_from_webserver(url):
 
             # Lấy giá trị băm của URL để dùng làm tên file
             image_key = get_url_hash(url)
-            parsed_url = urlparse(url)
-            domain = parsed_url.netloc.lower()
 
-            # Tạo thư mục cache nếu chưa tồn tại
-            cache_dir = os.path.join("cache", domain)
-            if not os.path.exists(cache_dir):
-                os.makedirs(cache_dir)
+            # Tách phần domain từ URL bằng cách tìm index đầu tiên của "/"
+            domain_end_index = url.find("/", url.find("//") + 2)
+            if domain_end_index != -1:
+                domain = url[0:domain_end_index].lower()
 
-            # print("IMG key: ", image_key)
-            file_path = os.path.join(cache_dir, f"{image_key}.jpg")
-            # print("PATH: ", file_path)
-            # Lưu hình ảnh vào thư mục cache
-            with open(file_path, "wb") as f:
-                f.write(image_data)
+                # Tạo thư mục cache nếu chưa tồn tại
+                cache_dir = os.path.join("cache", domain)
+                if not os.path.exists(cache_dir):
+                    os.makedirs(cache_dir)
+
+                file_path = os.path.join(cache_dir, f"{image_key}.jpg")
+
+                # Lưu hình ảnh vào thư mục cache
+                with open(file_path, "wb") as f:
+                    f.write(image_data)
 
             return image_data
     except Exception as e:
         print(f"Lỗi khi tải hình ảnh từ máy chủ web: {e}")
         return None
+
 
 def handle_image_request(url):
     """Xử lý yêu cầu hình ảnh, phục vụ từ bộ nhớ cache hoặc tải từ máy chủ web."""
@@ -290,13 +311,14 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
 clients = {}
 addresses = {}
 
-HOST = '10.123.1.71'
+HOST = '192.168.1.11'
 PORT =8888
 BUFSIZ = 4096
 ADDR = (HOST, PORT)
 
 SERVER = socket(AF_INET, SOCK_STREAM)
 SERVER.bind(ADDR)
+
 
 if __name__ == "__main__":
     config = read_config()
