@@ -3,8 +3,6 @@
 from socket import AF_INET, socket, SOCK_STREAM
 from threading import Thread
 import datetime
-# Define the cache expiration time in seconds (15 minutes)
-DEFAULT_CACHE_EXPIRATION = 100
 import os
 import threading
 import time
@@ -58,8 +56,6 @@ clean_thread.start()
 if not os.path.exists("cache"):
     os.makedirs("cache")
 
-# Define the default whitelist (allow access to *.example.com/*)
-DEFAULT_WHITELIST = ["example.com", "oosc.online","vbsca.ca/login/login.asp"]
 
 # Read configuration from file (if available)
 def read_config():
@@ -304,9 +300,9 @@ SERVER.bind(ADDR)
 
 if __name__ == "__main__":
     config = read_config()
-    cache_expiration = int(config.get("CACHE_EXPIRATION", DEFAULT_CACHE_EXPIRATION))
+    cache_expiration = int(config.get("CACHE_EXPIRATION", config["CACHE_EXPIRATION"]))
     print(cache_expiration, " -----")
-    whitelist = config.get("WHITELIST", DEFAULT_WHITELIST)
+    whitelist = config.get("WHITELIST", config["WHITELIST"])
     clean_thread = threading.Thread(target=clean_image_cache, args=(image_cache,))
     clean_thread.start()
     for domain in whitelist :
