@@ -12,18 +12,41 @@ import time
 def clean_image_cache(image_cache):
     while True:
         now = datetime.datetime.now()
-        keys_to_delete = [key for key, value in image_cache.items() if value["expiration"] < now]
-        for key in keys_to_delete:
-            # Remove the image data from the cache
-            del image_cache[key]
-            print(f"Xóa hình ảnh cũ khỏi cache - URL: {key}")
-            
-            # Remove the image file from the cache folder
-            image_filename = os.path.join("cache", f"{key}.jpg")
-            if os.path.exists(image_filename):
-                os.remove(image_filename)
-                print(f"Đã xóa hình ảnh khỏi thư mục cache: {image_filename}")
 
+        # Loop through each domain-specific cache folder
+        for domain in os.listdir("cache"):
+            domain_cache_dir = os.path.join("cache", domain)
+
+            # Check if the domain_cache_dir is a directory
+            if not os.path.isdir(domain_cache_dir):
+                continue
+
+            # Get a list of images in the cache folder along with their expiration times
+            '''images_in_cache = os.listdir(domain_cache_dir)
+            image_cache_info = {}
+            for image_file in images_in_cache:
+                image_path = os.path.join(domain_cache_dir, image_file)
+                expiration_time = datetime.datetime.fromtimestamp(os.path.getmtime(image_path)) + datetime.timedelta(seconds=cache_expiration)
+                image_cache_info[image_file] = {"path": image_path, "expiration": expiration_time}
+
+            # Remove the images from the cache whose expiration time has passed
+            keys_to_delete = [key for key, value in image_cache_info.items() if value["expiration"] < now]
+            for key in keys_to_delete:
+                # Remove the image data from the cache
+                os.remove(image_cache_info[key]["path"])
+                print(f"Xóa hình ảnh cũ khỏi cache - URL: {key}")'''
+
+            cache_folder_mod_time = datetime.datetime.fromtimestamp(os.path.getmtime(domain_cache_dir))
+            if cache_folder_mod_time + datetime.timedelta(seconds=cache_expiration) < now:
+                # Remove the entire cache folder for the expired website
+                for root, dirs, files in os.walk(domain_cache_dir, topdown=False):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        os.remove(file_path)
+                        print(f"Xóa hình ảnh cũ khỏi cache - Path: {file_path}")
+                    os.rmdir(root)  # Remove the subdirectories
+
+                print(f"Đã xóa thư mục cache hết hạn - Domain: {domain}")
         # Đợi 1 phút trước khi kiểm tra và xóa lại
         time.sleep(10)
 
@@ -209,8 +232,16 @@ def fetch_image_from_webserver(url):
 
             # Lấy giá trị băm của URL để dùng làm tên file
             image_key = get_url_hash(url)
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.lower()
+
+            # Tạo thư mục cache nếu chưa tồn tại
+            cache_dir = os.path.join("cache", domain)
+            if not os.path.exists(cache_dir):
+                os.makedirs(cache_dir)
+
             # print("IMG key: ", image_key)
-            file_path = os.path.join("cache", f"{image_key}.jpg")
+            file_path = os.path.join(cache_dir, f"{image_key}.jpg")
             # print("PATH: ", file_path)
             # Lưu hình ảnh vào thư mục cache
             with open(file_path, "wb") as f:
@@ -263,7 +294,7 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
 clients = {}
 addresses = {}
 
-HOST = '10.123.1.64'
+HOST = '10.123.1.71'
 PORT =8888
 BUFSIZ = 4096
 ADDR = (HOST, PORT)
