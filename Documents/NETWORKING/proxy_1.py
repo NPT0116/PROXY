@@ -209,15 +209,25 @@ def handle_client(client, start_time, end_time):
             server_socket.sendall(request_data)
 
             while True:
-                response_data = server_socket.recv(4096)
-                if len(response_data) > 0:
-                    client.send(response_data)
-                else:
+                # Đặt thời gian chờ nhận dữ liệu là 1 giây
+                server_socket.settimeout(1)
+
+                try:
+                    response_data = server_socket.recv(4096)
+                    if len(response_data) > 0:
+                        client.send(response_data)
+                        print(2)
+                    else:
+                        break
+                except timeout:
+                    print("Timeout-------")
+                    # Khi thời gian chờ hết, thoát khỏi vòng lặp
                     break
-            server_socket.close
+            server_socket.close()
         except Exception as e:
             print(f"Error: {e}")
 
+# Close the client connection if an error occurs
         client.close()
     else:
         # Handle unsupported methods (e.g., PUT, PATCH, DELETE, OPTIONS)
@@ -311,7 +321,7 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
 clients = {}
 addresses = {}
 
-HOST = '172.16.3.78'
+HOST = '10.123.0.136'
 PORT =8888
 BUFSIZ = 4096
 ADDR = (HOST, PORT)
