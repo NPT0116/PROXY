@@ -242,7 +242,6 @@ image_cache = {}
 
 import os
 import hashlib
-import urllib.request
 
 # Hàm để lấy giá trị băm MD5 của một URL
 def get_url_hash(url):
@@ -251,29 +250,70 @@ def get_url_hash(url):
 # Hàm để lấy hình ảnh từ máy chủ web
 def fetch_image_from_webserver(url):
     try:
-        with urllib.request.urlopen(url) as response:
-            image_data = response.read()
-
-            # Lấy giá trị băm của URL để dùng làm tên file
+        url_parts = url.split("://", 1)
+        if len(url_parts) == 2:
+            protocol, remaining = url_parts
+        else:
+            print("URL không hợp lệ.")
+            return None
+        
+        domain_end = remaining.find("/")
+        if domain_end == -1:
+            domain = remaining
+            path = "/"
+        else:
+            domain = remaining[:domain_end]
+            path = remaining[domain_end:]
+        
+        # Create a socket to connect to the web server
+        server_socket = socket(AF_INET, SOCK_STREAM)
+        server_socket.connect((domain, 80))
+        
+        # Send the HTTP request manually
+        request = (
+            f"GET {path} HTTP/1.1\r\n"
+            f"Host: {domain}\r\n"
+            f"Connection: close\r\n"
+            f"\r\n"
+        )
+        server_socket.sendall(request.encode())
+        
+        response = b""
+        while True:
+            chunk = server_socket.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+        
+        server_socket.close()
+        
+        # Find the start of the image data
+        image_start = response.find(b'\r\n\r\n') + 4
+        image_data = response[image_start:]
+        
+        if image_data:
+            # Lấy giá trị băm của URL để dùng làm khóa cache
             image_key = get_url_hash(url)
 
-            # Tách phần domain từ URL bằng cách tìm index đầu tiên của "/"
-            domain_end_index = url.find("/", url.find("//") + 2)
-            if domain_end_index != -1:
-                domain = url[0:domain_end_index].lower()
+            # Lấy domain name từ URL để tạo thư mục cache tương ứng
+            domain = domain.lower()
 
-                # Tạo thư mục cache nếu chưa tồn tại
-                cache_dir = os.path.join("cache", domain)
-                if not os.path.exists(cache_dir):
-                    os.makedirs(cache_dir)
+            # Tạo thư mục cache nếu chưa tồn tại
+            cache_dir = os.path.join("cache", domain)
+            if not os.path.exists(cache_dir):
+                os.makedirs(cache_dir)
 
-                file_path = os.path.join(cache_dir, f"{image_key}.jpg")
+            # Tạo đường dẫn tới file hình ảnh trong thư mục cache
+            file_path = os.path.join(cache_dir, f"{image_key}.jpg")
 
-                # Lưu hình ảnh vào thư mục cache
-                with open(file_path, "wb") as f:
-                    f.write(image_data)
+            # Lưu hình ảnh vào thư mục cache
+            with open(file_path, "wb") as f:
+                f.write(image_data)
 
             return image_data
+        else:
+            print("Lỗi khi tải hình ảnh từ máy chủ web - Không có dữ liệu hình ảnh")
+            return None
     except Exception as e:
         print(f"Lỗi khi tải hình ảnh từ máy chủ web: {e}")
         return None
@@ -310,7 +350,6 @@ def handle_image_request(url):
     return None
 
 
-
 def broadcast(msg, prefix=""):  # prefix is for name identification.
     """Broadcasts a message to all the clients."""
 
@@ -321,7 +360,7 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
 clients = {}
 addresses = {}
 
-HOST = '127.0.0.1'
+HOST = '10.123.0.154'
 PORT =8888
 BUFSIZ = 4096
 ADDR = (HOST, PORT)
