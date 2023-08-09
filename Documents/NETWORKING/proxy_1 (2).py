@@ -207,28 +207,21 @@ def handle_client(client, start_time, end_time):
             server_socket = socket(AF_INET, SOCK_STREAM)
             server_socket.connect((webserver, port))
             server_socket.sendall(request_data)
-
+            response_data = bytearray()
             while True:
                 # Đặt thời gian chờ nhận dữ liệu là 1 giây
-                server_socket.settimeout(1)
-
                 try:
+                    server_socket.settimeout(1)
                     response_data = server_socket.recv(4096)
-                    if len(response_data) > 0:
-                        client.send(response_data)
-                        #print(2)
-                    else:
-                        break
                 except timeout:
                     #print("Timeout-------")
                     # Khi thời gian chờ hết, thoát khỏi vòng lặp
                     break
             server_socket.close()
+            client.send(response_data)
         except Exception as e:
             print(f"Error: {e}")
-
-# Close the client connection if an error occurs
-        client.close()
+        # Close the client connection if an error occurs
     else:
         # Handle unsupported methods (e.g., PUT, PATCH, DELETE, OPTIONS)
         response = "HTTP/1.0 403 Forbidden\r\nContent-Type: text/html\r\n\r\n<h1>403 Forbidden</h1>"

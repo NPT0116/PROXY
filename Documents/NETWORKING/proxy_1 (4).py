@@ -7,7 +7,7 @@ import os
 import threading
 import time
 # Hàm để kiểm tra và xóa hình ảnh cũ khỏi cache
-def clean_image_cache(image_cache):
+def clean_image_cache():
     while True:
         now = datetime.datetime.now()
 
@@ -58,25 +58,6 @@ if not os.path.exists("cache"):
 
 
 # Read configuration from file (if available)
-def read_config():
-    config = {}
-    try:
-        with open("config.txt") as f:
-            for line in f:
-                key, value = line.strip().split("=")
-                if key == "WHITELIST":
-                    config[key] = [domain.strip() for domain in value.split(",") if domain.strip()]  # Split the value into a list
-                elif key == "CACHE_EXPIRATION":
-                    config[key] = int(value)
-                elif key in ["START_TIME", "END_TIME"]:
-                    config[key] = int(value)
-                else:
-                    config[key] = value
-    except FileNotFoundError:
-        pass
-    return config
-
-
 
 # Check if the URL is whitelisted
 def is_whitelisted(url, whitelist):
@@ -106,7 +87,7 @@ def read_config():
             for line in f:
                 key, value = line.strip().split("=")
                 if key == "WHITELIST":
-                    config[key] = [domain.strip() for domain in value.split(",") if domain.strip()]
+                    config[key] = [domain.strip() for domain in value.split(",")]
                 elif key == "CACHE_EXPIRATION":
                     config[key] = int(value)
                 elif key == "START_TIME":
@@ -207,34 +188,33 @@ def handle_client(client, start_time, end_time):
             server_socket = socket(AF_INET, SOCK_STREAM)
             server_socket.connect((webserver, port))
             server_socket.sendall(request_data)
-
-            while True:
-                # Đặt thời gian chờ nhận dữ liệu là 1 giây
-                server_socket.settimeout(1)
-
-                try:
-                    response_data = server_socket.recv(4096)
-                    if len(response_data) > 0:
-                        client.send(response_data)
-                        #print(2)
-                    else:
+            response_data = bytearray()
+            while True: 
+                while True: 
+                    # Đặt thời gian chờ nhận dữ liệu là 1 giây
+                    server_socket.settimeout(1)
+                    try:
+                        response_data += server_socket.recv(4096)
+                    except timeout:
+                        print("Timeout-------")
+                        # Khi thời gian chờ hết, thoát khỏi vòng lặp
                         break
+                client.send(response_data)
+                client.settimeout(2)
+                try: 
+                    request_data = client.recv(4096)
                 except timeout:
-                    #print("Timeout-------")
-                    # Khi thời gian chờ hết, thoát khỏi vòng lặp
-                    break
-            server_socket.close()
+                    break 
         except Exception as e:
             print(f"Error: {e}")
-
-# Close the client connection if an error occurs
+        server_socket.close()
         client.close()
+        # Close the client connection if an error occurs
     else:
         # Handle unsupported methods (e.g., PUT, PATCH, DELETE, OPTIONS)
         response = "HTTP/1.0 403 Forbidden\r\nContent-Type: text/html\r\n\r\n<h1>403 Forbidden</h1>"
         client.send(response.encode())
         print("Forbidden access (unsupported method)")
-
     client.close()
 
 # Define the cache for storing images and their expiration times
@@ -332,10 +312,11 @@ SERVER.bind(ADDR)
 
 if __name__ == "__main__":
     config = read_config()
-    cache_expiration = int(config.get("CACHE_EXPIRATION", config["CACHE_EXPIRATION"]))
+    cache_expiration = config.get("CACHE_EXPIRATION")
     print(cache_expiration, " -----")
-    whitelist = config.get("WHITELIST", config["WHITELIST"])
-    clean_thread = threading.Thread(target=clean_image_cache, args=(image_cache,))
+    whitelist = config.get("WHITELIST")
+    print(whitelist)
+    clean_thread = threading.Thread(target=clean_image_cache)
     clean_thread.start()
     for domain in whitelist :
         print("domain:    ",domain)
