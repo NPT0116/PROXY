@@ -120,9 +120,6 @@ def read_config():
     return config
 
 
-
-
-
 def accept_incoming_connections():
     """Sets up handling for incoming clients."""
     while True:
@@ -248,7 +245,7 @@ def get_url_hash(url):
     return hashlib.md5(url.encode()).hexdigest()
 
 # Hàm để lấy hình ảnh từ máy chủ web
-def fetch_image_from_webserver(url):
+'''def fetch_image_from_webserver(url):
     try:
         url_parts = url.split("://", 1)
         if len(url_parts) == 2:
@@ -317,7 +314,59 @@ def fetch_image_from_webserver(url):
     except Exception as e:
         print(f"Lỗi khi tải hình ảnh từ máy chủ web: {e}")
         return None
+'''
+def fetch_image_from_webserver(url):
+    try:
+        # Parse URL manually
+        scheme, netloc, path, params, query, fragment = "", "", "", "", "", ""
+        parts = url.split("://")
+        if len(parts) > 1:
+            scheme = parts[0]
+            remaining = parts[1]
+            if "/" in remaining:
+                netloc, path = remaining.split("/", 1)
+                path = "/" + path
+            else:
+                netloc = remaining
+        else:
+            netloc = parts[0]
 
+        webserver = netloc
+        path = path or '/'
+
+        request_data = f"GET {path} HTTP/1.1\r\nHost: {webserver}\r\nConnection: close\r\n\r\n"
+
+        port = 80 if scheme == "http" else 443  # Adjust port based on scheme
+
+        server_sock = socket(AF_INET, SOCK_STREAM)
+        server_sock.connect((webserver, port))
+        server_sock.sendall(request_data.encode())
+
+        image_data = b""
+        while True:
+            response_data = server_sock.recv(BUFSIZ)
+            if len(response_data) > 0:
+                image_data += response_data
+            else:
+                break
+
+        server_sock.close()
+
+        image_key = get_url_hash(url)
+        domain = netloc.lower()
+
+        cache_dir = os.path.join("cache", domain)
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+
+        file_path = os.path.join(cache_dir, f"{image_key}.jpg")
+        with open(file_path, "wb") as f:
+            f.write(image_data)
+
+        return image_data
+    except Exception as e:
+        print(f"Lỗi khi tải hình ảnh từ máy chủ web: {e}")
+        return None
 
 def handle_image_request(url):
     """Xử lý yêu cầu hình ảnh, phục vụ từ bộ nhớ cache hoặc tải từ máy chủ web."""
@@ -360,7 +409,7 @@ def broadcast(msg, prefix=""):  # prefix is for name identification.
 clients = {}
 addresses = {}
 
-HOST = '10.123.0.154'
+HOST = '172.29.65.188'
 PORT =8888
 BUFSIZ = 4096
 ADDR = (HOST, PORT)
