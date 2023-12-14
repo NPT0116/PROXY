@@ -1,0 +1,14 @@
+﻿  main.cpp
+D:\tetris\tetris\main.cpp(139,54): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+          with
+          [
+              T=float
+          ]
+D:\tetris\tetris\main.cpp(139,44): warning C4244: 'argument': conversion from 'int' to 'T', possible loss of data
+          with
+          [
+              T=float
+          ]
+D:\tetris\tetris\main.cpp(312,45): warning C4244: 'argument': conversion from 'const float' to 'int', possible loss of data
+D:\tetris\tetris\main.cpp(421,46): warning C4244: 'argument': conversion from 'const float' to 'int', possible loss of data
+  tetris.vcxproj -> D:\tetris\Debug\tetris.exe
